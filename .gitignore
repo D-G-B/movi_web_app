@@ -1,0 +1,9 @@
+# macOS system file
+.DS_Store
+
+# Python cache files
+__pycache__/
+**/__pycache__/
+
+# Instance folder (contains DB and config)
+instance/

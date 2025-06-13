@@ -1,4 +1,4 @@
-from ..database import db
+from database_config import db
 
 class Movie(db.Model):
     __tablename__ = 'movies'

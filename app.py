@@ -1,5 +1,5 @@
 from flask import Flask
-from database import db
+from database_config import db
 from models import User, Movie
 
 app = Flask(__name__)
