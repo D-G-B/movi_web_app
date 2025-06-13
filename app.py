@@ -3,7 +3,7 @@ from database import db
 from models import User, Movie
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///movi_app.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///movi_web_app.db'
 
 # Connect db to app
 db.init_app(app)
