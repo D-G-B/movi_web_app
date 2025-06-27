@@ -47,6 +47,15 @@ class SQLiteDataManager(DataManagerInterface):
             self.db.session.rollback()
             raise e
 
+    def update_movie(self, movie):
+        """Update an existing movie in the database"""
+        try:
+            self.db.session.commit()  # If movie is already loaded and modified
+            return movie
+        except Exception as e:
+            self.db.session.rollback()
+            raise e
+
     def get_movie_by_id(self, movie_id):
         """Get a specific movie by its ID"""
         return Movie.query.get(movie_id)

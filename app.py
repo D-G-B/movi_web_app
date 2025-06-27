@@ -1,12 +1,16 @@
-from flask import Flask
+from flask import Flask, render_template, request, redirect, url_for
 from database_config import db
 from models import User, Movie
+from data_managers import SQLiteDataManager
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///movi_web_app.db'
 
 # Connect db to app
 db.init_app(app)
+
+# Initialize data manager
+data_manager = SQLiteDataManager(db)
 
 # Create tables
 with app.app_context():
@@ -18,7 +22,8 @@ def home():
 
 @app.route('/users')
 def list_users():
-    pass
+    users = data_manager.get_all_users()
+    return render_template('users.html', users=users)
 
 @app.route('/users/<user_id>')
 def users_movies():
