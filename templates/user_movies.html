@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.name }}'s Movies - MovieWeb App{% endblock %}
+
+{% block content %}
+<h1>{{ user.name }}'s Movies</h1>
+
+<div class="mb-3">
+    <a href="{{ url_for('add_movie_to_user', user_id=user.id) }}" class="btn btn-primary">Add New Movie</a>
+    <a href="{{ url_for('list_users') }}" class="btn btn-secondary">Back to Users</a>
+</div>
+
+{% if movies %}
+    <div class="row">
+        {% for movie in movies %}
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">{{ movie.name }}</h5>
+                    <p class="card-text">
+                        <strong>Director:</strong> {{ movie.director }}<br>
+                        {% if movie.year %}
+                        <strong>Year:</strong> {{ movie.year }}<br>
+                        {% endif %}
+                        {% if movie.rating %}
+                        <strong>Rating:</strong> {{ movie.rating }}/10
+                        {% endif %}
+                    </p>
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('update_movie', user_id=user.id, movie_id=movie.id) }}" 
+                           class="btn btn-sm btn-outline-primary">Edit</a>
+                        <form method="POST" action="{{ url_for('delete_movie', user_id=user.id, movie_id=movie.id) }}" 
+                              style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                    onclick="return confirm('Are you sure you want to delete this movie?')">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>No movies found for {{ user.name }}. <a href="{{ url_for('add_movie_to_user', user_id=user.id) }}">Add the first movie!</a></p>
+{% endif %}
+{% endblock %}
