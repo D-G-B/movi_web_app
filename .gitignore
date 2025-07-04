@@ -7,3 +7,9 @@ __pycache__/
 
 # Instance folder (contains DB and config)
 instance/
+
+# Ignore JetBrains IDE config folder
+.idea/
+
+# Ignore Python virtual environment folder
+venv/
