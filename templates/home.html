@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Home - MovieWeb App{% endblock %}
+
+{% block content %}
+<div class="jumbotron bg-light p-5 rounded-lg mb-4">
+    <h1 class="display-4">Welcome to MovieWeb App!</h1>
+    <p class="lead">Manage your favorite movies and organize them by user. Keep track of ratings, directors, and release years.</p>
+    <hr class="my-4">
+    <p>Get started by adding users and their favorite movies to build your personal movie database.</p>
+    <div class="d-flex gap-3">
+        <a class="btn btn-primary btn-lg" href="{{ url_for('list_users') }}" role="button">View Users</a>
+        <a class="btn btn-success btn-lg" href="{{ url_for('add_user') }}" role="button">Add New User</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">📚 Manage Users</h5>
+                <p class="card-text">Add, view, and organize users in your movie database.</p>
+                <a href="{{ url_for('list_users') }}" class="btn btn-outline-primary">View Users</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">🎬 Add Movies</h5>
+                <p class="card-text">Add favorite movies for each user with ratings and details.</p>
+                <a href="{{ url_for('add_user') }}" class="btn btn-outline-success">Get Started</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">⭐ Rate & Review</h5>
+                <p class="card-text">Keep track of movie ratings and organize your collection.</p>
+                <a href="{{ url_for('list_users') }}" class="btn btn-outline-info">Browse Movies</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
