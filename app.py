@@ -1,8 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from database_config import db
-from models import User, Movie
 from data_managers import SQLiteDataManager
-from validators import validate_user_data, validate_movie_data
+from services import UserService, MovieService
 import logging
 
 # Initialize Flask app with instance-relative config so SQLite DB is in /instance folder
@@ -18,14 +17,28 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Connect db and initialize data manager
+# Connect db and initialize data manager and services
 db.init_app(app)
 data_manager = SQLiteDataManager(db)
+user_service = UserService(data_manager)
+movie_service = MovieService(data_manager)
 
 # Create tables inside app context
 with app.app_context():
     db.create_all()
 
+
+# Helper to handle service responses
+def handle_service_response(success, result, success_message, redirect_url, template_name=None, **kwargs):
+    if success:
+        flash(success_message, 'success')
+        return redirect(redirect_url)
+    else:
+        flash(result, 'error') # result contains the error message
+        if template_name:
+            return render_template(template_name, **kwargs)
+        else:
+            return redirect(redirect_url) # Fallback redirect if no template provided
 
 # Error handlers
 @app.errorhandler(404)
@@ -45,6 +58,9 @@ def internal_server_error(e):
 def handle_exception(e):
     """Handle unexpected exceptions"""
     logger.error(f"Unhandled exception: {str(e)}")
+    # Log the full traceback for unhandled exceptions
+    import traceback
+    logger.error(traceback.format_exc())
     return render_template('errors/500.html'), 500
 
 
@@ -56,26 +72,24 @@ def home():
 @app.route('/users')
 def list_users():
     try:
-        users = data_manager.get_all_users()
+        users = user_service.get_all_users()
         return render_template('users.html', users=users)
     except Exception as e:
-        logger.error(f"Error fetching users: {str(e)}")
         flash('Error loading users. Please try again.', 'error')
         return render_template('users.html', users=[])
 
 
 @app.route('/users/<int:user_id>')
 def user_movies(user_id):
-    try:
-        user = data_manager.get_user_by_id(user_id)
-        if not user:
-            flash(f'User with ID {user_id} not found.', 'error')
-            return redirect(url_for('list_users'))
+    user = user_service.get_user_by_id(user_id)
+    if not user:
+        flash(f'User with ID {user_id} not found.', 'error')
+        return redirect(url_for('list_users'))
 
-        movies = data_manager.get_user_movies(user_id)
+    try:
+        movies = movie_service.get_user_movies(user_id)
         return render_template('user_movies.html', user=user, movies=movies)
     except Exception as e:
-        logger.error(f"Error fetching user movies for user {user_id}: {str(e)}")
         flash('Error loading user movies. Please try again.', 'error')
         return redirect(url_for('list_users'))
 
@@ -83,117 +97,65 @@ def user_movies(user_id):
 @app.route('/add_user', methods=['GET', 'POST'])
 def add_user():
     if request.method == 'POST':
-        try:
-            existing_users = data_manager.get_all_users()
-            is_valid, result = validate_user_data(request.form, existing_users)
-
-            if not is_valid:
-                flash(result, 'error')
-                return render_template('add_user.html')
-
-            new_user = User(name=result['name'])
-            data_manager.add_user(new_user)
-            flash(f'User "{result["name"]}" added successfully!', 'success')
-            return redirect(url_for('list_users'))
-
-        except Exception as e:
-            logger.error(f"Error adding user: {str(e)}")
-            flash('Error adding user. Please try again.', 'error')
-            return render_template('add_user.html')
-
+        success, result = user_service.create_user(request.form)
+        return handle_service_response(
+            success, result,
+            f'User "{result.name}" added successfully!' if success else None,
+            url_for('list_users'),
+            template_name='add_user.html'
+        )
     return render_template('add_user.html')
 
 
 @app.route('/users/<int:user_id>/add_movie', methods=['GET', 'POST'])
 def add_movie_to_user(user_id):
-    try:
-        user = data_manager.get_user_by_id(user_id)
-        if not user:
-            flash(f'User with ID {user_id} not found.', 'error')
-            return redirect(url_for('list_users'))
-
-        if request.method == 'POST':
-            existing_movies = data_manager.get_user_movies(user_id)
-            is_valid, result = validate_movie_data(request.form, existing_movies)
-
-            if not is_valid:
-                flash(result, 'error')
-                return render_template('add_movie.html', user=user)
-
-            new_movie = Movie(
-                name=result['name'],
-                director=result['director'],
-                year=result['year'],
-                rating=result['rating'],
-                user_id=user_id
-            )
-            data_manager.add_movie(new_movie)
-            flash(f'Movie "{result["name"]}" added successfully!', 'success')
-            return redirect(url_for('user_movies', user_id=user_id))
-
-        return render_template('add_movie.html', user=user)
-
-    except Exception as e:
-        logger.error(f"Error in add_movie_to_user for user {user_id}: {str(e)}")
-        flash('Error processing movie. Please try again.', 'error')
+    user = user_service.get_user_by_id(user_id)
+    if not user:
+        flash(f'User with ID {user_id} not found.', 'error')
         return redirect(url_for('list_users'))
+
+    if request.method == 'POST':
+        success, result = movie_service.create_movie(user_id, request.form)
+        return handle_service_response(
+            success, result,
+            f'Movie "{result.name}" added successfully!' if success else None,
+            url_for('user_movies', user_id=user_id),
+            template_name='add_movie.html', user=user
+        )
+    return render_template('add_movie.html', user=user)
 
 
 @app.route('/users/<int:user_id>/update_movie/<int:movie_id>', methods=['GET', 'POST'])
 def update_movie(user_id, movie_id):
-    try:
-        movie = data_manager.get_movie_by_id(movie_id)
-        if not movie or movie.user_id != user_id:
-            flash('Movie not found or access denied.', 'error')
-            return redirect(url_for('user_movies', user_id=user_id))
-
-        if request.method == 'POST':
-            # Don't check for duplicates when updating (allow same movie to keep its values)
-            is_valid, result = validate_movie_data(request.form)
-
-            if not is_valid:
-                flash(result, 'error')
-                return render_template('update_movie.html', movie=movie)
-
-            # Update movie fields
-            movie.name = result['name']
-            movie.director = result['director']
-            movie.year = result['year']
-            movie.rating = result['rating']
-
-            data_manager.update_movie(movie)
-            flash(f'Movie "{result["name"]}" updated successfully!', 'success')
-            return redirect(url_for('user_movies', user_id=user_id))
-
-        return render_template('update_movie.html', movie=movie)
-
-    except Exception as e:
-        logger.error(f"Error updating movie {movie_id} for user {user_id}: {str(e)}")
-        flash('Error updating movie. Please try again.', 'error')
+    is_valid, movie = movie_service.validate_movie_ownership(movie_id, user_id)
+    if not is_valid:
+        flash(movie, 'error')  # movie contains error message
         return redirect(url_for('user_movies', user_id=user_id))
+
+    if request.method == 'POST':
+        success, result = movie_service.update_movie(movie_id, request.form)
+        return handle_service_response(
+            success, result,
+            f'Movie "{result.name}" updated successfully!' if success else None,
+            url_for('user_movies', user_id=user_id),
+            template_name='update_movie.html', movie=movie # Re-render with current movie if error
+        )
+    return render_template('update_movie.html', movie=movie)
 
 
 @app.route('/users/<int:user_id>/delete_movie/<int:movie_id>', methods=['POST'])
 def delete_movie(user_id, movie_id):
-    try:
-        movie = data_manager.get_movie_by_id(movie_id)
-        if not movie:
-            flash('Movie not found.', 'error')
-        elif movie.user_id != user_id:
-            flash('Access denied.', 'error')
-        else:
-            movie_name = movie.name
-            success = data_manager.delete_movie(movie_id)
-            if success:
-                flash(f'Movie "{movie_name}" deleted successfully!', 'success')
-            else:
-                flash('Error deleting movie.', 'error')
+    is_valid, movie = movie_service.validate_movie_ownership(movie_id, user_id)
+    if not is_valid:
+        flash(movie, 'error')  # movie contains error message
+        return redirect(url_for('user_movies', user_id=user_id))
 
-    except Exception as e:
-        logger.error(f"Error deleting movie {movie_id} for user {user_id}: {str(e)}")
-        flash('Error deleting movie. Please try again.', 'error')
-
-    return redirect(url_for('user_movies', user_id=user_id))
+    success, result = movie_service.delete_movie(movie_id)
+    return handle_service_response(
+        success, result,
+        f'Movie "{result}" deleted successfully!' if success else None,
+        url_for('user_movies', user_id=user_id)
+    )
 
 
 if __name__ == '__main__':
