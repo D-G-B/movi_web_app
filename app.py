@@ -58,7 +58,6 @@ def internal_server_error(e):
 def handle_exception(e):
     """Handle unexpected exceptions"""
     logger.error(f"Unhandled exception: {str(e)}")
-    # Log the full traceback for unhandled exceptions
     import traceback
     logger.error(traceback.format_exc())
     return render_template('errors/500.html'), 500
@@ -107,6 +106,19 @@ def add_user():
     return render_template('add_user.html')
 
 
+@app.route('/users/<int:user_id>/delete', methods=['POST'])
+def delete_user(user_id):
+    """
+    Handle deletion of a user.
+    """
+    success, result = user_service.delete_user(user_id)
+    return handle_service_response(
+        success, result,
+        f'User "{result}" deleted successfully!' if success else None,
+        url_for('list_users')
+    ) # Added for user deletion functionality
+
+
 @app.route('/users/<int:user_id>/add_movie', methods=['GET', 'POST'])
 def add_movie_to_user(user_id):
     user = user_service.get_user_by_id(user_id)
@@ -129,7 +141,7 @@ def add_movie_to_user(user_id):
 def update_movie(user_id, movie_id):
     is_valid, movie = movie_service.validate_movie_ownership(movie_id, user_id)
     if not is_valid:
-        flash(movie, 'error')  # movie contains error message
+        flash(movie, 'error')
         return redirect(url_for('user_movies', user_id=user_id))
 
     if request.method == 'POST':
@@ -138,7 +150,7 @@ def update_movie(user_id, movie_id):
             success, result,
             f'Movie "{result.name}" updated successfully!' if success else None,
             url_for('user_movies', user_id=user_id),
-            template_name='update_movie.html', movie=movie # Re-render with current movie if error
+            template_name='update_movie.html', movie=movie
         )
     return render_template('update_movie.html', movie=movie)
 
@@ -147,7 +159,7 @@ def update_movie(user_id, movie_id):
 def delete_movie(user_id, movie_id):
     is_valid, movie = movie_service.validate_movie_ownership(movie_id, user_id)
     if not is_valid:
-        flash(movie, 'error')  # movie contains error message
+        flash(movie, 'error')
         return redirect(url_for('user_movies', user_id=user_id))
 
     success, result = movie_service.delete_movie(movie_id)

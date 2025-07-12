@@ -33,3 +33,7 @@ class DataManagerInterface(ABC):
     @abstractmethod
     def get_user_by_id(self, user_id):
         pass
+
+    @abstractmethod
+    def delete_user(self, user_id):
+        pass

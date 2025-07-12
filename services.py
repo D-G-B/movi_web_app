@@ -54,6 +54,36 @@ class UserService(BaseService):
 
         return self._execute_service_method(_add_user_operation)
 
+    def delete_user(self, user_id):
+        """
+        Delete a user.
+        Deletion is prevented if the user has associated movies;
+        these must be deleted first.
+
+        Returns:
+            tuple: (success, user_name_or_error_message)
+        """
+        user = self.data_manager.get_user_by_id(user_id)
+        if not user:
+            return False, "User not found."
+
+        user_name = user.name
+
+        # Check if the user has movies associated
+        user_movies = self.data_manager.get_user_movies(user_id)
+        if user_movies:
+            return False, f"Cannot delete user '{user_name}' because they have {len(user_movies)} movies. Please delete their movies first."
+
+        def _delete_user_operation():
+            success = self.data_manager.delete_user(user_id)
+            if success:
+                return user_name
+            else:
+                # If data_manager.delete_user returns False, it implies an issue already logged
+                raise ValueError("Error deleting user.")
+
+        return self._execute_service_method(_delete_user_operation)
+
 
 class MovieService(BaseService):
     def get_user_movies(self, user_id):

@@ -1,7 +1,9 @@
-from .data_manager_interface import DataManagerInterface
-from models import User, Movie
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 import logging
+
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+
+from models import User, Movie
+from .data_manager_interface import DataManagerInterface
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +18,7 @@ class SQLiteDataManager(DataManagerInterface):
             return query_func()
         except SQLAlchemyError as e:
             logger.error(f"{error_message}: {str(e)}")
-            self.db.session.rollback() # Rollback in case of database error
+            self.db.session.rollback()  # Rollback in case of database error
             raise
         except Exception as e:
             logger.error(f"{error_message}: {str(e)}")
@@ -36,7 +38,8 @@ class SQLiteDataManager(DataManagerInterface):
             self.db.session.rollback()
             logger.error(f"Integrity error in {error_message_base}: {str(e)}")
             # Provide a specific message if available, otherwise a generic one
-            raise ValueError(integrity_error_message or f"A duplicate entry or related integrity issue occurred during {error_message_base}.")
+            raise ValueError(
+                integrity_error_message or f"A duplicate entry or related integrity issue occurred during {error_message_base}.")
         except SQLAlchemyError as e:
             self.db.session.rollback()
             logger.error(f"Database error in {error_message_base}: {str(e)}")
@@ -103,20 +106,19 @@ class SQLiteDataManager(DataManagerInterface):
                                  "Error retrieving movie for deletion")
         if not movie:
             logger.warning(f"Attempted to delete non-existent movie with ID {movie_id}")
-            return False # Indicate that no movie was found to delete
+            return False  # Indicate that no movie was found to delete
 
-        movie_name = movie.name # Store name before deletion for logging/return
+        movie_name = movie.name  # Store name before deletion for logging/return
 
         def _delete_movie_op():
             self.db.session.delete(movie)
-            return True # Indicate successful deletion operation for the helper
+            return True  # Indicate successful deletion operation for the helper
 
         return self._safe_transaction(
             _delete_movie_op,
             f"Movie '{movie_name}' (ID: {movie_id}) deleted successfully",
             "deleting movie"
         )
-
 
     def update_movie(self, movie):
         """Update an existing movie in the database"""
@@ -151,6 +153,30 @@ class SQLiteDataManager(DataManagerInterface):
             raise ValueError("Movie ID is required")
         return self._safe_query(lambda: Movie.query.get(movie_id),
                                 "Error fetching movie by ID")
+
+    def delete_user(self, user_id):
+        """Delete a user from the database."""
+        if not user_id:
+            raise ValueError("User ID is required for deletion.")
+
+        user = self._safe_query(lambda: User.query.get(user_id),
+                                "Error retrieving user for deletion")
+        if not user:
+            logger.warning(f"Attempted to delete non-existent user with ID {user_id}")
+            return False
+
+        user_name = user.name
+
+        def _delete_user_op():
+            self.db.session.delete(user)
+            return True
+
+        return self._safe_transaction(
+            _delete_user_op,
+            f"User '{user_name}' (ID: {user_id}) and associated data deleted successfully",
+            "deleting user",
+            "Cannot delete user as there are still movies associated with them. Delete movies first."
+        )
 
     def get_user_by_id(self, user_id):
         """Get a specific user by their ID"""
